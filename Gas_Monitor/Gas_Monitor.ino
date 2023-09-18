@@ -2,10 +2,12 @@
   GAS_MONITORING_SYSTEM 
 
   Version: 0.01
-  Last edit date: 17/09/2023
+  Last edit date: 18/09/2023
   Dev_Notes: 
-   : Build a simple ui for loading and showing gas levels
-   : Using Mq2 sensor only due to lack of parts
+   : Build a simple ui for loading and showing gas levels -- Done
+   : Using Mq2 sensor only due to lack of parts -- Done
+   : Added a Progress bar 
+   :Added support for LED,BUZZER
 
 
   @PureVodka007
@@ -18,6 +20,13 @@
 
 //Assigning the screen
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* clock=*/ SCL, /* data=*/ SDA, /* reset=*/ U8X8_PIN_NONE);
+
+#define GasP 4 // Gpio 4 for Gas Sensor
+#define LED_PIN 18
+#define BUZZ_PIN 19
+
+#define MAX 2600
+#define MIN 1400
 
 const unsigned char LoadingScreen [] PROGMEM = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -91,47 +100,99 @@ void ProgressBar(){
   unsigned int sec = 0;
   int percent  = 0;
   unsigned int w = 0,h = 15;
+
   char pString[10];
+
   u8g2.drawXBMP(0,0,128,64,LoadingScreen);
   u8g2.sendBuffer();
+
   delay(5000); 
   u8g2.clearDisplay(); 
+
   u8g2.drawFrame(12,39,104,19);
   u8g2.setFont(u8g_font_7x14);
   u8g2.drawStr(1,16,"Sensor Warming up");
   u8g2.setFont(u8g_font_courR08r);
+
   while(sec <= 20)
   {
-  percent = (sec*100)/20;
-  sprintf(pString,"%d ",percent);
-  u8g2.drawBox(14,41,sec*5,h);
-  u8g2.drawStr(54,35,pString);
-  u8g2.drawStr(73,35,"%");
- u8g2.sendBuffer(); 
-  delay(500);
-  sec++;
+    percent = (sec*100)/20;
+    sprintf(pString,"%d ",percent);
+   u8g2.drawBox(14,41,sec*5,h);
+   u8g2.drawStr(54,35,pString);
+    u8g2.drawStr(73,35,"%");
+    u8g2.sendBuffer(); 
+    delay(500);
+    sec++;
   
   }
 
   u8g2.clearDisplay(); //Finish
 }
 
-int Sensor_value =0;
+int Map(int Value,int min,int max,int threshold)
+{
+  // Map Function maps the sensor value to a value of 0 - 50 px
+  int Mapped;
+
+  if ( Value < min) { Value = min; } 
+  else if (Value > max) { Value = max;}
+
+  Mapped = threshold* (Value-min)/ (max-min);
+
+  return Mapped;
+  
+}
+
+int Status(int p)
+{
+  
+  if ( p <20) { return 0; }
+  else if (p > 70) {return 2;}
+  else { return 1;}
+}
+int Value = 0;
+int Graph_Y = 12;
+int Graph_X = 0;
+int p,Status_v;
+
+char s[10];
+char Stat[3][10] = {
+    {"LOW"},
+    {"ALERT"},
+    {"DANGER"}
+  };
 void setup() {
   
+  pinMode(LED_PIN,OUTPUT);
+  pinMode(BUZZ_PIN,OUTPUT);
+
   u8g2.begin(); //Intialize the screen                             
- 
   u8g2.setColorIndex(1);
   u8g2.setBitmapMode(1); // transparent bitmaps
   
   ProgressBar();
  
-  
 }
 
 void loop() {
   
-  Sens
-  // main Page to display 
+  Value = analogRead(GasP);
+  Graph_X = Map(Value,MIN,MAX,110);
+  p = Map(Value,MIN,MAX,100);
+  Status_v = Status(p);
+  sprintf(s,"%d",p);
+  u8g2.drawStr(14, 40, s);
+  u8g2.drawStr(30, 40, "%");
+  u8g2.drawStr(54, 40, Stat[Status_v]);
+  if (Status_v > 1){digitalWrite(LED_PIN,HIGH);}else {digitalWrite(LED_PIN,LOW);}
+
+  u8g2.drawBox(9,12,Graph_X,Graph_Y);
+  u8g2.drawFrame(6, 8, 114, 16);
+
+  u8g2.sendBuffer();
+  delay(500);
+  u8g2.clearBuffer();
+  
 
 }
