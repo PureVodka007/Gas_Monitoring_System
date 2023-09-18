@@ -8,6 +8,7 @@
    : Using Mq2 sensor only due to lack of parts -- Done
    : Added a Progress bar 
    :Added support for LED,BUZZER
+   : Added Support For Bluetooth Serial
 
 
   @PureVodka007
@@ -18,12 +19,17 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 
+# include "BluetoothSerial.h"
+
 //Assigning the screen
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* clock=*/ SCL, /* data=*/ SDA, /* reset=*/ U8X8_PIN_NONE);
+
+BluetoothSerial esp_Bt; // Create a Bt- Object 
 
 #define GasP 4 // Gpio 4 for Gas Sensor
 #define LED_PIN 18
 #define BUZZ_PIN 19
+#define BT_LED 5
 
 #define MAX 2600
 #define MIN 1400
@@ -151,12 +157,14 @@ int Status(int p)
   else if (p > 70) {return 2;}
   else { return 1;}
 }
+
 int Value = 0;
-int Graph_Y = 12;
+int Graph_Y = 12; 
 int Graph_X = 0;
 int p,Status_v;
 
 char s[10];
+
 char Stat[3][10] = {
     {"LOW"},
     {"ALERT"},
@@ -166,6 +174,9 @@ void setup() {
   
   pinMode(LED_PIN,OUTPUT);
   pinMode(BUZZ_PIN,OUTPUT);
+  pinMode(BT_LED,OUTPUT);
+
+  esp_Bt.begin("GAS_SENSOR");
 
   u8g2.begin(); //Intialize the screen                             
   u8g2.setColorIndex(1);
@@ -182,14 +193,24 @@ void loop() {
   p = Map(Value,MIN,MAX,100);
   Status_v = Status(p);
   sprintf(s,"%d",p);
+  
   u8g2.drawStr(14, 40, s);
   u8g2.drawStr(30, 40, "%");
   u8g2.drawStr(54, 40, Stat[Status_v]);
   if (Status_v > 1){digitalWrite(LED_PIN,HIGH);}else {digitalWrite(LED_PIN,LOW);}
-
+  
   u8g2.drawBox(9,12,Graph_X,Graph_Y);
   u8g2.drawFrame(6, 8, 114, 16);
 
+  if(esp_Bt.available()){
+    digitalWrite(BT_LED,HIGH);
+    esp_Bt.print("Percent: "); esp_Bt.print(p);
+    esp_Bt.print(" Level: ");esp_Bt.println(Stat[Status_v]);
+     }
+     else
+     {
+      digitalWrite(BT_LED,LOW);
+     }
   u8g2.sendBuffer();
   delay(500);
   u8g2.clearBuffer();
