@@ -27,6 +27,7 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* clock=*/ SCL, /* data=*/ SD
 BluetoothSerial esp_Bt; // Create a Bt- Object 
 
 #define GasP 4 // Gpio 4 for Gas Sensor
+
 #define LED_PIN 18
 #define BUZZ_PIN 19
 #define BT_LED 5
@@ -204,8 +205,8 @@ void loop() {
 
   if(esp_Bt.available()){
     digitalWrite(BT_LED,HIGH);
-    esp_Bt.print("Percent: "); esp_Bt.print(p);
-    esp_Bt.print(" Level: ");esp_Bt.println(Stat[Status_v]);
+    esp_Bt.print(p);  // Send percent to app
+    
      }
      else
      {
