@@ -27,13 +27,15 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* clock=*/ SCL, /* data=*/ SD
 BluetoothSerial esp_Bt; // Create a Bt- Object 
 
 #define GasP 4 // Gpio 4 for Gas Sensor
-
+#define GasA 15 // Ammonia Sensor
+//#define GasM 2  // Methane Sensor
 #define LED_PIN 18
 #define BUZZ_PIN 19
 #define BT_LED 5
 
 #define MAX 2600
-#define MIN 1400
+#define MIN 1300
+
 
 const unsigned char LoadingScreen [] PROGMEM = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -102,6 +104,32 @@ const unsigned char LoadingScreen [] PROGMEM = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
+// '-e Alert', 16x16px
+const unsigned char Alert [] PROGMEM = {
+	0xc0, 0x07, 0x40, 0x04, 0x20, 0x08, 0x20, 0x08, 0x90, 0x11, 0x90, 0x11, 0x88, 0x11, 0x88, 0x21, 
+	0x04, 0x21, 0x04, 0x41, 0x02, 0x40, 0x82, 0x83, 0x01, 0x80, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00
+};
+// '-e Danger', 16x16px
+const unsigned char Danger [] PROGMEM = {
+	0xfc, 0x3f, 0x02, 0x40, 0x22, 0x48, 0x72, 0x5c, 0x72, 0x5c, 0x72, 0x5c, 0x22, 0x48, 0x82, 0x42, 
+	0x02, 0x40, 0x12, 0x48, 0xfc, 0x3f, 0x10, 0x08, 0xf0, 0x0f, 0x10, 0x08, 0x10, 0x08, 0xe0, 0x07
+};
+// '-e Low', 16x16px
+const unsigned char Low [] PROGMEM = {
+	0x00, 0x00, 0x00, 0x40, 0x00, 0x70, 0x00, 0x3c, 0x00, 0x1e, 0x00, 0x07, 0x88, 0x03, 0x8e, 0x03, 
+	0xce, 0x00, 0x68, 0x7c, 0x78, 0x04, 0x30, 0x04, 0x00, 0x38, 0x00, 0x40, 0x00, 0x40, 0x00, 0x3c
+};
+
+// Array of all bitmaps for convenience. (Total bytes used to store images in PROGMEM = 144)
+
+const unsigned char* Symbols[3] = {
+	 Low,
+   Alert,
+   Danger
+	
+};
+
+
 void ProgressBar(){
  
   unsigned int sec = 0;
@@ -151,26 +179,31 @@ int Map(int Value,int min,int max,int threshold)
   
 }
 
-int Status(int p)
+int Status(int p,int q) // add q
 {
   
-  if ( p <20) { return 0; }
-  else if (p > 70) {return 2;}
+  if ( p <20 && q <20 ) { return 0; }
+  else if (p > 70 || q>70 ) {return 2;}
   else { return 1;}
 }
 
-int Value = 0;
-int Graph_Y = 12; 
-int Graph_X = 0;
-int p,Status_v;
+int ValueM = 0;
+int ValueA =0;
+int Graph_Y = 4; 
+int Graph_XM = 0;
+int Graph_XA = 0;
+int BT_send = 0;
+ 
+int Per_A,Per_M,Status_v;
 
-char s[10];
+char s_M[5]; // Arrray to Store the percent Values
+char s_A[5];
 
-char Stat[3][10] = {
+ char Stat[3][10] = { // DEPECRATED using bitmaps
     {"LOW"},
     {"ALERT"},
     {"DANGER"}
-  };
+  }; 
 void setup() {
   
   pinMode(LED_PIN,OUTPUT);
@@ -184,28 +217,53 @@ void setup() {
   u8g2.setBitmapMode(1); // transparent bitmaps
   
   ProgressBar();
+  u8g2.setFont(u8g_font_6x10); // set font to small
  
 }
 
 void loop() {
   
-  Value = analogRead(GasP);
-  Graph_X = Map(Value,MIN,MAX,110);
-  p = Map(Value,MIN,MAX,100);
-  Status_v = Status(p);
-  sprintf(s,"%d",p);
-  
-  u8g2.drawStr(14, 40, s);
-  u8g2.drawStr(30, 40, "%");
-  u8g2.drawStr(54, 40, Stat[Status_v]);
-  if (Status_v > 1){digitalWrite(LED_PIN,HIGH);}else {digitalWrite(LED_PIN,LOW);}
-  
-  u8g2.drawBox(9,12,Graph_X,Graph_Y);
-  u8g2.drawFrame(6, 8, 114, 16);
+  ValueM = analogRead(GasP);    // Read RAW value from Sensors
+  ValueA = analogRead(GasA);
 
-  if(esp_Bt.available()){
+  Graph_XM = Map(ValueM,MIN,MAX,110);  // Graph the values for OLED Screen
+  Graph_XA = Map(ValueA,MIN,MAX,110);
+
+  Per_M = Map(ValueM,MIN,MAX,100);  // Take Percent for 0-100 value for bt and showing
+  Per_A = Map(ValueA,MIN,MAX,100);
+
+  Status_v = Status(Per_M,Per_A); // store the return Value
+
+  sprintf(s_M,"%d",Per_M);  // Convert int to strings
+  sprintf(s_A,"%d",Per_A);
+  
+  u8g2.drawStr(15, 35, s_A); // Ammonia
+  u8g2.drawStr(30, 35, "%");
+
+  u8g2.drawStr(91, 35, s_M); // Methane
+  u8g2.drawStr(105, 35, "%");
+
+  u8g2.drawXBMP(59,24,16,16,Symbols[Status_v]); // Symbols
+  
+
+  if (Status_v > 1){digitalWrite(LED_PIN,HIGH); digitalWrite(BUZZ_PIN,HIGH);}else {digitalWrite(LED_PIN,LOW); digitalWrite(BUZZ_PIN,LOW);}  // Turn ON led if Gas > 70%
+  
+  u8g2.drawBox(9,11,Graph_XM,Graph_Y); // Draw Graph for Methane
+  u8g2.drawFrame(7, 9, 114, 8);
+
+  u8g2.drawBox(9,49,Graph_XA,Graph_Y); // Draw Graph for Ammonia
+  u8g2.drawFrame(7,46,114,8);
+
+  if((esp_Bt.available()) && (BT_send >= 8)){
     digitalWrite(BT_LED,HIGH);
-    esp_Bt.print(p);  // Send percent to app
+    esp_Bt.print(Per_M);  // Send percent to app
+    esp_Bt.print(",");
+    esp_Bt.print(Per_A);
+    esp_Bt.print(",");
+    esp_Bt.println(Stat[Status_v]);
+    BT_send = 0;
+  
+
     
      }
      else
@@ -213,8 +271,8 @@ void loop() {
       digitalWrite(BT_LED,LOW);
      }
   u8g2.sendBuffer();
-  delay(500);
   u8g2.clearBuffer();
-  
+  BT_send ++;
+   delay(500);
 
 }
