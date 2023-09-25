@@ -29,8 +29,7 @@ BluetoothSerial esp_Bt; // Create a Bt- Object
 #define GasP 4 // Gpio 4 for Gas Sensor
 #define GasA 15 // Ammonia Sensor
 //#define GasM 2  // Methane Sensor
-#define LED_PIN 18
-#define BUZZ_PIN 19
+#define LED_PIN 18  // Both Buzzer and led
 #define BT_LED 5
 
 #define MAX 2600
@@ -207,7 +206,7 @@ char s_A[5];
 void setup() {
   
   pinMode(LED_PIN,OUTPUT);
-  pinMode(BUZZ_PIN,OUTPUT);
+  
   pinMode(BT_LED,OUTPUT);
 
   esp_Bt.begin("GAS_SENSOR");
@@ -246,7 +245,7 @@ void loop() {
   u8g2.drawXBMP(59,24,16,16,Symbols[Status_v]); // Symbols
   
 
-  if (Status_v > 1){digitalWrite(LED_PIN,HIGH); digitalWrite(BUZZ_PIN,HIGH);}else {digitalWrite(LED_PIN,LOW); digitalWrite(BUZZ_PIN,LOW);}  // Turn ON led if Gas > 70%
+  if (Status_v > 1){digitalWrite(LED_PIN,HIGH);}else {digitalWrite(LED_PIN,LOW);}  // Turn ON led if Gas > 70%
   
   u8g2.drawBox(9,11,Graph_XM,Graph_Y); // Draw Graph for Methane
   u8g2.drawFrame(7, 9, 114, 8);
